@@ -285,25 +285,30 @@ class Testbed():
 
         # Check if CUDA is available and set the device
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print(f"Using device: {device}")
+        print(f"[INFO] Using device: {device}")
 
         # Load weights
-        model = torch.load(".log/model_250000.pth", weights_only=False)
+        # model = torch.load(".log/model_250000.pth", weights_only=False)
+        model = torch.load(".log/2025-06-10_17-07-26/model_100000.pth", weights_only=False)
         model.eval()
 
         backbone, head = model.backbone, model.head
         backbone, head = backbone.to(device), head.to(device)
 
         n_slices = 1
+        average_minimum_angle_no_mark = 0
         average_minimum_angle = 0
-        considered_shape = ["tetrahedron", "cube", "icosahedron", "cone", "cylinder", "marked tetrahedron", "marked cube", "marked icosahedron"]
+        considered_shape = ["Tetrahedron", "Cube", "Icosahedron", "Cone", "Cylinder", "Marked Tetrahedron", "Marked Cube", "Marked Icosahedron"]
         shape_count = [0 for _ in range(8)]
         average_minimum_angle_each_shape = [0 for _ in range(8)]
+        total_no_mark = 0
         total = 0
 
         iteration = 0
         avg_iteration = 0
 
+        print(f"[INFO] Preparing for evaluation with {len(test_loader)} test batches.")
+        print("[INFO] Starting model evaluation...")
         start_sample = time.time()
 
         for batch_idx, (img, rotation, rotations_equivalent) in tqdm(enumerate(test_loader), total=len(test_loader)):
@@ -318,7 +323,7 @@ class Testbed():
             start_backbone = time.time()
             features = backbone(img)
             end_backbone = time.time()
-            print(f"Time backbone: {end_backbone - start_backbone:.6f} seconds")
+            # print(f"Time backbone: {end_backbone - start_backbone:.6f} seconds")
 
             # Step 2: Denoised pose (sampling)
             start_sampling = time.time()
@@ -327,7 +332,7 @@ class Testbed():
             poses, iteration = self.picardIterationSamplingWindow(head, features, n_slices)
             avg_iteration += iteration
             end_sampling = time.time()
-            print(f"Sampling Time: {end_sampling - start_sampling:.6f} seconds, ")
+            # print(f"Sampling Time: {end_sampling - start_sampling:.6f} seconds, ")
 
             # Step 3: Evaluation - Calculate minimun angle
             rt_idx = 0 # rt_idx is the index of rt, size [batch_size*n_slices, 3]
@@ -357,16 +362,20 @@ class Testbed():
                         min_rotations_idx = rot_idx
 
                 average_minimum_angle_each_shape[label_shapes[sample_idx]] += min_angle
+                average_minimum_angle += min_angle
+                total += 1
 
                 if len(rotations) != 1:
-                    average_minimum_angle += min_angle
-                    total += 1
+                    average_minimum_angle_no_mark += min_angle
+                    total_no_mark += 1
                     # tqdm.write(f"{min_angle}")
-                    if total % 10 == 0:
-                        end_sample = time.time()
-                        avg_sample_time = (end_sample - start_sample) / (batch_idx + 1)
-                        tqdm.write(f"Total {total} samples, average minimum angle: {average_minimum_angle / total:.5f},"
-                                    f"average time: {avg_sample_time:.5f}, average iteration: {avg_iteration / (batch_idx+1):.5f}")
+                    # if total % 200 == 0:
+                    #     end_sample = time.time()
+                    #     avg_sample_time = (end_sample - start_sample) / (batch_idx + 1)
+                        # tqdm.write(f"Total {total} samples, average minimum angle: {average_minimum_angle / total:.5f},"
+                        #             f"average time: {avg_sample_time:.5f}, average iteration: {avg_iteration / (batch_idx+1):.5f}")
+                        
+                        # tqdm.write(f"[INFO] Total {total:>5} samples | Average Minimum Angular Distance: {average_minimum_angle / total:.5f} | Average Time: {avg_sample_time:.5f}")
 
                 # Update index of rt
                 rt_idx += 1
@@ -374,6 +383,8 @@ class Testbed():
                 # print(f"Minimum angle: {min_angle}, \npredict: \n{predict_r}, \nmin-corresponding answer: \n{rotations[min_rotations_idx]}")
                 # break
 
+        end_sample = time.time()
+        avg_sample_time = (end_sample - start_sample) / len(test_loader)
             
 
             # self.showImage(img)
@@ -388,11 +399,21 @@ class Testbed():
             #     cv.destroyAllWindows()
 
         average_minimum_angle = average_minimum_angle / total
-        print(f"Total {total} samples, the average minimum angle is {average_minimum_angle}")
+        average_minimum_angle_no_mark = average_minimum_angle_no_mark / total_no_mark
+        print("-" * 130)
+        print(f"{'Summary of Evaluation Results':^130}")
+        print("-" * 130)
+        print(f"{'Overall':<20} | Total {total:>6} samples | Average Minimum Angular Distance: {average_minimum_angle:>10.6f} | Average Time: {avg_sample_time:.5f}")
+        print(f"{'Unmarked Only':<20} | Total {total_no_mark:>6} samples | Average Minimum Angular Distance: {average_minimum_angle_no_mark:>10.6f}")
+        print("-" * 130)
+
+        print(f"{'Per Shape Statistics':^130}")  # <-- Informative header centered
+        print("-" * 130)
 
         for i in range(len(considered_shape)):
             average_minimum_angle_each_shape[i] = average_minimum_angle_each_shape[i]/shape_count[i]
-            print(f"{considered_shape[i]}: Total {shape_count[i]} samples, the average minimum angle is {average_minimum_angle_each_shape[i]}")
+            print(f"{considered_shape[i]:<20} | Total {shape_count[i]:>6} samples | Average Minimum Angular Distance: {average_minimum_angle_each_shape[i]:>10.6f}")
+        print("-" * 130)
 
     def visualize(self):
         transform = self.transform
@@ -620,7 +641,7 @@ class Testbed():
         
         # Check if CUDA is available and set the device
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print(f"Using device: {device}")
+        print(f"[Info] Using device: {device}")
 
         # Prepare the model
         # model = torch.jit.script(self.model)
@@ -643,7 +664,7 @@ class Testbed():
 
         # Get the current date and time
         current_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        current_time = '000'
+        # current_time = '000'
 
         # Create folder
         filename = "training.csv"

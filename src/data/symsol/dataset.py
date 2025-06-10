@@ -101,6 +101,7 @@ class SymmetricSolidsDataset(Dataset):
             if split == "train":
                 self.tf_dataset, self.info = tfds.load("symmetric_solids", split="train", with_info=True, data_dir=self.data_dir, as_supervised=True)
                 # Iterate over dataset and save images/gt_label
+                print("[INFO] Loading Training Data ...")
                 for idx, (image, label) in tqdm(enumerate(self.tf_dataset.as_numpy_iterator())):              
                     label_matrix = label.tolist()  # Poise matrix as a nested list
                     image_path = os.path.join(self.save_dir, "images", f"{idx}.png")
@@ -108,12 +109,13 @@ class SymmetricSolidsDataset(Dataset):
                     # Append metadata
                     self.metadata.append({"image_path": image_path, "label": label_matrix})
 
-                    if idx == 1000:
-                        break
+                    # if idx == 1000:
+                    #     break
 
             elif split == 'test':
                 self.tf_dataset, self.info = tfds.load("symmetric_solids", split="test", with_info=True, data_dir=self.data_dir, as_supervised=False)
                 # Iterate over dataset and save images/gt_label
+                print("[INFO] Loading Testing Data ...")
                 for idx, data in tqdm(enumerate(self.tf_dataset.as_numpy_iterator())):
                     # image = np.array(data["image"])
                     label_shape = np.array(data["label_shape"], dtype=np.int32)
@@ -196,8 +198,8 @@ class SymmetricSolidsDataset(Dataset):
                 print("Testing dataset saved successfully!")
 
     def __len__(self):
-        # return len(self.metadata)
-        return 2000
+        return len(self.metadata)
+        # return 2000
     
     def __getitem__(self, idx):
         """
