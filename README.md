@@ -1,4 +1,4 @@
-# Parallel Sampling of Diffusion Model on $ SO(3) $
+# Parallel Sampling of Diffusion Model on $SO(3)$
 
 ## Abstract
 In this paper, we design an algorithm to acceler-
